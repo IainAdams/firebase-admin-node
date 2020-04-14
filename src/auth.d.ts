@@ -975,7 +975,7 @@ export namespace admin.auth {
      * The former is used to look up SAML providers only, while the latter is used
      * for OIDC providers.
      */
-    type: 'saml' | 'oidc';
+    type: 'saml' | 'oidc' | 'default';
 
     /**
      * The maximum number of results to return per page. The default and maximum is
@@ -1093,6 +1093,14 @@ export namespace admin.auth {
      * [spec](https://openid.net/specs/openid-connect-core-1_0.html#IDTokenValidation).
      */
     issuer: string;
+  }
+
+  /**
+   * Default Auth Provider Configs
+   */
+  export interface DefaultAuthProviderConfig extends AuthProviderConfig {
+    clientId: string;
+    clientSecret: string;
   }
 
   /**
