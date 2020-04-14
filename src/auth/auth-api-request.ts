@@ -805,6 +805,27 @@ const LIST_INBOUND_SAML_CONFIGS = new ApiSettings('/inboundSamlConfigs', 'GET')
     }
   });
 
+  /** Instantiates the list default supported configuration endpoint settings. */
+const LIST_DEFAULT_SUPPORTED_IDP_CONFIGS = new ApiSettings('/defaultSupportedIdpConfigs', 'GET')
+  // Set request validator.
+  .setRequestValidator((request: any) => {
+    // Validate next page token.
+    if (typeof request.pageToken !== 'undefined' &&
+        !validator.isNonEmptyString(request.pageToken)) {
+      throw new FirebaseAuthError(AuthClientErrorCode.INVALID_PAGE_TOKEN);
+    }
+    // Validate max results.
+    if (!validator.isNumber(request.pageSize) ||
+        request.pageSize <= 0 ||
+        request.pageSize > MAX_LIST_PROVIDER_CONFIGURATION_PAGE_SIZE) {
+      throw new FirebaseAuthError(
+        AuthClientErrorCode.INVALID_ARGUMENT,
+        `Required "maxResults" must be a positive integer that does not exceed ` +
+        `${MAX_LIST_PROVIDER_CONFIGURATION_PAGE_SIZE}.`,
+      );
+  }
+});
+
 /**
  * Class that provides the mechanism to send requests to the Firebase Auth backend endpoints.
  */
@@ -1513,6 +1534,39 @@ export abstract class AbstractAuthRequestHandler {
             'INTERNAL ASSERT FAILED: Unable to update SAML provider configuration');
         }
         return response as SAMLConfigServerResponse;
+      });
+  }
+
+  /**
+   * Lists the Default Supported IDP configurations (single batch only) with a size of maxResults and starting from
+   * the offset as specified by pageToken.
+   *
+   * @param {number=} maxResults The page size, 100 if undefined. This is also the maximum
+   *     allowed limit.
+   * @param {string=} pageToken The next page token. If not specified, returns OIDC configurations
+   *     without any offset. Configurations are returned in the order they were created from oldest to
+   *     newest, relative to the page token offset.
+   * @return {Promise<object>} A promise that resolves with the current batch of downloaded
+   *     Default Supported IDP configurations and the next page token if available. For the last page, an empty list of provider
+   *     configuration and no page token are returned.
+   */
+  public listdefaultSupportedIdpConfigs(
+    maxResults: number = MAX_LIST_PROVIDER_CONFIGURATION_PAGE_SIZE,
+    pageToken?: string): Promise<object> {
+    const request: {pageSize: number; pageToken?: string} = {
+      pageSize: maxResults,
+    };
+    // Add next page token if provided.
+    if (typeof pageToken !== 'undefined') {
+      request.pageToken = pageToken;
+    }
+    return this.invokeRequestHandler(this.getProjectConfigUrlBuilder(), LIST_DEFAULT_SUPPORTED_IDP_CONFIGS, request)
+      .then((response: any) => {
+        if (!response.defaultSupportedIdpConfigs) {
+          response.defaultSupportedIdpConfigs = [];
+          delete response.nextPageToken;
+        }
+        return response as {defaultSupportedIdpConfigs: object[]; nextPageToken?: string};
       });
   }
 

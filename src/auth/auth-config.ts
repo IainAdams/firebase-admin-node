@@ -21,7 +21,7 @@ import {AuthClientErrorCode, FirebaseAuthError} from '../utils/error';
 
 /** The filter interface used for listing provider configurations. */
 export interface AuthProviderConfigFilter {
-  type: 'saml' | 'oidc';
+  type: 'saml' | 'oidc' | 'default';
   maxResults?: number;
   pageToken?: string;
 }
@@ -47,6 +47,11 @@ export interface SAMLAuthProviderConfig extends AuthProviderConfig {
   rpEntityId: string;
   callbackURL?: string;
   enableRequestSigning?: boolean;
+}
+
+export interface DefaultAuthProviderConfig extends AuthProviderConfig {
+  clientId: string;
+  clientSecret: string;
 }
 
 /** The server side SAML configuration request interface. */
@@ -106,6 +111,16 @@ export interface OIDCConfigServerResponse {
   clientId?: string;
   issuer?: string;
   displayName?: string;
+  enabled?: boolean;
+}
+
+/** The server side DefaultSupportedIDP configuration response interface. */
+export interface DefaultSupportedIDPConfigServerResponse {
+  // Used when getting config.
+  // projects/${projectId}/defaultSupportedIdpConfigs/${providerId}
+  name?: string;
+  clientId?: string;
+  clientSecret?: string;
   enabled?: boolean;
 }
 
@@ -698,6 +713,184 @@ export class OIDCConfig implements OIDCAuthProviderConfig {
       providerId: this.providerId,
       issuer: this.issuer,
       clientId: this.clientId,
+    };
+  }
+}
+
+/**
+ * Defines the DefaultSupportedIDPConfig class used to convert a client side configuration to its
+ * server side representation.
+ */
+export class DefaultSupportedIDPConfig implements DefaultAuthProviderConfig {
+  public readonly enabled: boolean;
+  public readonly providerId: string;
+  public readonly issuer: string;
+  public readonly clientId: string;
+  public readonly clientSecret: string;
+
+  /**
+   * Converts a client side request to a DefaultSupportedIDPServerRequest which is the format
+   * accepted by the backend server.
+   * Throws an error if validation fails. If the request is not a DefaultSupportedIDP request,
+   * returns null.
+   *
+   * @param {OIDCAuthProviderRequest} options The options object to convert to a server request.
+   * @param {boolean=} ignoreMissingFields Whether to ignore missing fields.
+   * @return {?OIDCConfigServerRequest} The resulting server request or null if not valid.
+   */
+  // public static buildServerRequest(
+  //   options: DefaultSupportedIDPRequest,
+  //   ignoreMissingFields = false): DefaultSupportedIDPConfigServerRequest | null {
+  //   const makeRequest = validator.isNonNullObject(options) &&
+  //       (options.name || ignoreMissingFields);
+  //   if (!makeRequest) {
+  //     return null;
+  //   }
+  //   const request: OIDCConfigServerRequest = {};
+  //   // Validate options.
+  //   OIDCConfig.validate(options, ignoreMissingFields);
+  //   request.enabled = options.enabled;
+  //   request.displayName = options.displayName;
+  //   request.issuer = options.issuer;
+  //   request.clientId = options.clientId;
+  //   return request;
+  // }
+
+  /**
+   * Returns the provider ID corresponding to the resource name if available.
+   *
+   * @param {string} resourceName The server side resource name
+   * @return {?string} The provider ID corresponding to the resource, null otherwise.
+   */
+  public static getProviderIdFromResourceName(resourceName: string): string | null {
+    // name is of form projects/xxx/defaultSupportedIdpConfigs/yyy
+    const matchProviderRes = resourceName.match(/\/defaultSupportedIdpConfigs\/(.*)$/);
+    if (!matchProviderRes || matchProviderRes.length < 2) {
+      return null;
+    }
+    return matchProviderRes[1];
+  }
+
+  /**
+   * @param {any} providerId The provider ID to check.
+   * @return {boolean} Whether the provider ID corresponds to an OIDC provider.
+   */
+  // public static isProviderId(providerId: any): providerId is string {
+  //   return validator.isNonEmptyString(providerId) && providerId.indexOf('oidc.') === 0;
+  // }
+
+  /**
+   * Validates the OIDCConfig options object. Throws an error on failure.
+   *
+   * @param {OIDCAuthProviderRequest} options The options object to validate.
+   * @param {boolean=} ignoreMissingFields Whether to ignore missing fields.
+   */
+  // public static validate(options: OIDCAuthProviderRequest, ignoreMissingFields = false): void {
+  //   const validKeys = {
+  //     enabled: true,
+  //     displayName: true,
+  //     providerId: true,
+  //     clientId: true,
+  //     issuer: true,
+  //   };
+  //   if (!validator.isNonNullObject(options)) {
+  //     throw new FirebaseAuthError(
+  //       AuthClientErrorCode.INVALID_CONFIG,
+  //       '"OIDCAuthProviderConfig" must be a valid non-null object.',
+  //     );
+  //   }
+  //   // Check for unsupported top level attributes.
+  //   for (const key in options) {
+  //     if (!(key in validKeys)) {
+  //       throw new FirebaseAuthError(
+  //         AuthClientErrorCode.INVALID_CONFIG,
+  //         `"${key}" is not a valid OIDC config parameter.`,
+  //       );
+  //     }
+  //   }
+  //   // Required fields.
+  //   if (validator.isNonEmptyString(options.providerId)) {
+  //     if (options.providerId.indexOf('oidc.') !== 0) {
+  //       throw new FirebaseAuthError(
+  //         !options.providerId ? AuthClientErrorCode.MISSING_PROVIDER_ID : AuthClientErrorCode.INVALID_PROVIDER_ID,
+  //         '"OIDCAuthProviderConfig.providerId" must be a valid non-empty string prefixed with "oidc.".',
+  //       );
+  //     }
+  //   } else if (!ignoreMissingFields) {
+  //     throw new FirebaseAuthError(
+  //       !options.providerId ? AuthClientErrorCode.MISSING_PROVIDER_ID : AuthClientErrorCode.INVALID_PROVIDER_ID,
+  //       '"OIDCAuthProviderConfig.providerId" must be a valid non-empty string prefixed with "oidc.".',
+  //     );
+  //   }
+  //   if (!(ignoreMissingFields && typeof options.clientId === 'undefined') &&
+  //       !validator.isNonEmptyString(options.clientId)) {
+  //     throw new FirebaseAuthError(
+  //       !options.clientId ? AuthClientErrorCode.MISSING_OAUTH_CLIENT_ID : AuthClientErrorCode.INVALID_OAUTH_CLIENT_ID,
+  //       '"OIDCAuthProviderConfig.clientId" must be a valid non-empty string.',
+  //     );
+  //   }
+  //   if (!(ignoreMissingFields && typeof options.issuer === 'undefined') &&
+  //       !validator.isURL(options.issuer)) {
+  //     throw new FirebaseAuthError(
+  //       !options.issuer ? AuthClientErrorCode.MISSING_ISSUER : AuthClientErrorCode.INVALID_CONFIG,
+  //       '"OIDCAuthProviderConfig.issuer" must be a valid URL string.',
+  //     );
+  //   }
+  //   if (typeof options.enabled !== 'undefined' &&
+  //       !validator.isBoolean(options.enabled)) {
+  //     throw new FirebaseAuthError(
+  //       AuthClientErrorCode.INVALID_CONFIG,
+  //       '"OIDCAuthProviderConfig.enabled" must be a boolean.',
+  //     );
+  //   }
+  //   if (typeof options.displayName !== 'undefined' &&
+  //       !validator.isString(options.displayName)) {
+  //     throw new FirebaseAuthError(
+  //       AuthClientErrorCode.INVALID_CONFIG,
+  //       '"OIDCAuthProviderConfig.displayName" must be a valid string.',
+  //     );
+  //   }
+  // }
+
+  /**
+   * The OIDCConfig constructor.
+   *
+   * @param {any} response The server side response used to initialize the OIDCConfig object.
+   * @constructor
+   */
+  constructor(response: DefaultSupportedIDPConfigServerResponse) {
+    if (!response ||
+        !response.clientId ||
+        !response.clientSecret ||
+        !response.name ||
+        !(validator.isString(response.name) &&
+        DefaultSupportedIDPConfig.getProviderIdFromResourceName(response.name))) {
+      throw new FirebaseAuthError(
+        AuthClientErrorCode.INTERNAL_ERROR,
+        'INTERNAL ASSERT FAILED: Invalid Default Supported IDP configuration response');
+    }
+
+    const providerId = DefaultSupportedIDPConfig.getProviderIdFromResourceName(response.name);
+    if (!providerId) {
+      throw new FirebaseAuthError(
+        AuthClientErrorCode.INTERNAL_ERROR,
+        'INTERNAL ASSERT FAILED: Invalid Default Supported IDP configuration response');
+    }
+    this.providerId = providerId;
+
+    this.clientId = response.clientId;
+    this.clientSecret = response.clientSecret
+    // When enabled is undefined, it takes its default value of false.
+    this.enabled = !!response.enabled;
+  }
+
+  /** @return {DefaultAuthProviderConfig} The plain object representation of the DefaultSupportedIDPConfig. */
+  public toJSON(): DefaultAuthProviderConfig {
+    return {
+      enabled: this.enabled,
+      providerId: this.providerId,
+      clientId: this.clientId,
+      clientSecret: this.clientSecret
     };
   }
 }

@@ -32,7 +32,7 @@ import { FirebaseTokenVerifier, createSessionCookieVerifier, createIdTokenVerifi
 import {ActionCodeSettings} from './action-code-settings-builder';
 import {
   AuthProviderConfig, AuthProviderConfigFilter, ListProviderConfigResults, UpdateAuthProviderRequest,
-  SAMLConfig, OIDCConfig, OIDCConfigServerResponse, SAMLConfigServerResponse,
+  SAMLConfig, OIDCConfig, OIDCConfigServerResponse, SAMLConfigServerResponse, DefaultSupportedIDPConfig,
 } from './auth-config';
 import {TenantManager} from './tenant-manager';
 
@@ -475,6 +475,18 @@ export class BaseAuth<T extends AbstractAuthRequestHandler> {
           // Return list of provider configuration and the next page token if available.
           return processResponse(response, providerConfigs);
         });
+    } else if( options && options.type === 'default') {
+      return this.authRequestHandler.listdefaultSupportedIdpConfigs(options.maxResults, options.pageToken)
+        .then((response: any) => {
+          // List of provider configurations to return.
+          const providerConfigs: DefaultSupportedIDPConfig[] = [];
+          // Convert each provider config response to a SAMLConfig.
+          response.defaultSupportedIdpConfigs.forEach((configResponse: any) => {
+            providerConfigs.push(new DefaultSupportedIDPConfig(configResponse));
+          });
+          // Return list of provider configuration and the next page token if available.
+          return processResponse(response, providerConfigs);
+        })
     }
     return Promise.reject(
       new FirebaseAuthError(
